@@ -11,6 +11,7 @@ from torch.utils.tensorboard import SummaryWriter
 
 from utils.enc1_dec3 import PrototypeArchitecture3d
 from utils.unet import UnetArchitecture3d
+from utils.ensemble import MyEnsemble
 from utils.losses import XEntropyPlusDiceLoss
 from utils.metrics import MetricsPt
 from utils.dataloader import DatasetMMEP3d
@@ -82,8 +83,9 @@ class TrainSession:
 
         #####################################
         # network model
-        #self.model = PrototypeArchitecture3d(config).cuda()
-        self.model = UnetArchitecture3d(config).cuda()
+        self.modelA = PrototypeArchitecture3d(config).cuda()
+        self.modelB = UnetArchitecture3d(config).cuda()
+        self.model = MyEnsemble(self.modelA,self.modelB)
 
         # initialization:
         def init_weights(m):
@@ -232,12 +234,10 @@ class TrainSession:
 
             # predict
             with torch.set_grad_enabled(True):
-                output_tensor_wt = self.model(data_tensor)
-                output_tensor_tc = self.model(data_tensor)
-                output_tensor_en = self.model(data_tensor)
-                loss = (self.loss_fn(output_tensor_wt, label_tensor_wt) +
-                        self.loss_fn(output_tensor_tc, label_tensor_tc) +
-                        self.loss_fn(output_tensor_en, label_tensor_en)) / 3.
+                output_tensor = self.model(data_tensor)
+                loss = (self.loss_fn(output_tensor, label_tensor_wt) +
+                        self.loss_fn(output_tensor, label_tensor_tc) +
+                        self.loss_fn(output_tensor, label_tensor_en)) / 3.
 
             # backpropagate
             torch.backends.cudnn.benchmark = False
@@ -247,9 +247,9 @@ class TrainSession:
 
             # evaluate
             with torch.no_grad():
-                dice_wt = self.metrics_obj.dice_score(torch.argmax(output_tensor_wt, dim=1), label_tensor_wt)
-                dice_tc = self.metrics_obj.dice_score(torch.argmax(output_tensor_tc, dim=1), label_tensor_tc)
-                dice_en = self.metrics_obj.dice_score(torch.argmax(output_tensor_en, dim=1), label_tensor_en)
+                dice_wt = self.metrics_obj.dice_score(torch.argmax(output_tensor, dim=1), label_tensor_wt)
+                dice_tc = self.metrics_obj.dice_score(torch.argmax(output_tensor, dim=1), label_tensor_tc)
+                dice_en = self.metrics_obj.dice_score(torch.argmax(output_tensor, dim=1), label_tensor_en)
 
                 metric_dict = {
                     'loss': loss.detach().cpu(),
@@ -289,17 +289,15 @@ class TrainSession:
                 del label_tensor
                 
                # predict
-                output_tensor_wt = self.model(data_tensor)
-                output_tensor_tc = self.model(data_tensor)
-                output_tensor_en = self.model(data_tensor)
+                output_tensor = self.model(data_tensor)
 
-                loss = (self.loss_fn(output_tensor_wt, label_tensor_wt) +
-                        self.loss_fn(output_tensor_tc, label_tensor_tc) +
-                        self.loss_fn(output_tensor_en, label_tensor_en)) / 3.
+                loss = (self.loss_fn(output_tensor, label_tensor_wt) +
+                        self.loss_fn(output_tensor, label_tensor_tc) +
+                        self.loss_fn(output_tensor, label_tensor_en)) / 3.
 
-                dice_wt = self.metrics_obj.dice_score(torch.argmax(output_tensor_wt, dim=1), label_tensor_wt)
-                dice_tc = self.metrics_obj.dice_score(torch.argmax(output_tensor_tc, dim=1), label_tensor_tc)
-                dice_en = self.metrics_obj.dice_score(torch.argmax(output_tensor_en, dim=1), label_tensor_en)
+                dice_wt = self.metrics_obj.dice_score(torch.argmax(output_tensor, dim=1), label_tensor_wt)
+                dice_tc = self.metrics_obj.dice_score(torch.argmax(output_tensor, dim=1), label_tensor_tc)
+                dice_en = self.metrics_obj.dice_score(torch.argmax(output_tensor, dim=1), label_tensor_en)
 
                 metric_dict = {
                     'loss': loss.detach().cpu(),
