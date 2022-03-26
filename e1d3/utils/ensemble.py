@@ -1,5 +1,7 @@
 import torch
 from torch import nn
+from utils.unet import UnetArchitecture3d
+from utils.enc1_dec1 import E1D1
 
 class MyEnsemble(nn.Module):
 
@@ -7,11 +9,27 @@ class MyEnsemble(nn.Module):
         super(MyEnsemble,self).__init__()
         self.modelA = modelA
         self.modelB = modelB
-        self.classifier = nn.Linear(4,2)
+        self.classifier = nn.Linear(192,96)
 
-    def forward(self, x1, x2):
-        x1 = self.modelA(x1)
-        x2 = self.modelB(x2)
-        x = torch.cat((x1,x2),dim=1)
-        x = self.classifier(nn.LeakyReLU(negative_slope=0.01, inplace=True))
-        return x
+    def forward(self, x):
+        outA = self.modelA(x)
+        outB = self.modelB(x)
+        out = torch.cat((outA,outB),dim=4)
+        x = self.classifier(out)
+        return torch.softmax(x, dim=4)
+
+if __name__ == '__main__':
+    net1 = UnetArchitecture3d().cuda().train()
+    net1.print_model_parameters()
+
+    net2 = UnetArchitecture3d().cuda().train()
+    net2.print_model_parameters()
+
+    x = torch.randn(3, 4, 96, 96, 96).cuda()
+    y1 = net1(x)
+    y2 = net2(x)
+    print(y1.shape,y2.shape)
+    loss1 = y1.sum()
+    loss1.backward()
+    loss2 = y2.sum()
+    loss2.backward()
