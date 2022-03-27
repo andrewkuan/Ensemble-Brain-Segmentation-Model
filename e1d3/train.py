@@ -83,8 +83,8 @@ class TrainSession:
 
         #####################################
         # network model
-        self.model = E1D1(config).cuda()
-        #self.modelB = UnetArchitecture3d(config).cuda()
+        #self.model = E1D1(config).cuda()
+        self.model = UnetArchitecture3d(config).cuda()
         #self.model = MyEnsemble(self.modelA,self.modelB).cuda()
 
         # initialization:
