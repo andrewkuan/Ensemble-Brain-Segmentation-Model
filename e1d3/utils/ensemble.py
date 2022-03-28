@@ -1,5 +1,6 @@
 import torch
 from torch import nn
+import torch.nn.functional as F
 from utils.unet import UnetArchitecture3d
 from utils.enc1_dec1 import E1D1
 
@@ -15,8 +16,8 @@ class MyEnsemble(nn.Module):
         outA = self.modelA(x)
         outB = self.modelB(x)
         out = torch.cat((outA,outB),dim=4)
-        x = self.classifier(out)
-        return torch.softmax(x, dim=4)
+        x = self.classifier(F.relu(out))
+        return x
 
 if __name__ == '__main__':
     net1 = UnetArchitecture3d().cuda().train()
