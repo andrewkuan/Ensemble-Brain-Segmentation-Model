@@ -16,8 +16,8 @@ class MyEnsemble(nn.Module):
         outA = self.modelA(x)
         outB = self.modelB(x)
         out = torch.cat((outA,outB),dim=4)
-        x = self.classifier(F.relu(out))
-        return x
+        out = self.classifier(F.relu(out))
+        return out
 
 if __name__ == '__main__':
     net1 = E1D1().cuda().train()

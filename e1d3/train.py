@@ -9,7 +9,6 @@ import torch
 from torch.optim import lr_scheduler
 from torch.utils.tensorboard import SummaryWriter
 
-from utils.enc1_dec3 import PrototypeArchitecture3d
 from utils.enc1_dec1 import E1D1
 from utils.unet import UnetArchitecture3d
 from utils.ensemble import MyEnsemble
@@ -125,8 +124,7 @@ class TrainSession:
 
         #####################################
         self.loss_fn = XEntropyPlusDiceLoss(num_classes=num_classes).cuda()
-        self.optimizer = torch.optim.SGD(self.model.parameters(), lr=initial_learning_rate, momentum=0.99,
-                                         weight_decay=1e-6, dampening=0, nesterov=True)
+        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=initial_learning_rate, weight_decay=1e-6, amsgrad=True)
 
         def lr_lambda(epoch):
             return (1 - epoch / self.total_epochs) ** lr_decay_rate
