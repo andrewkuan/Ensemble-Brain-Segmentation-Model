@@ -189,6 +189,6 @@ if __name__ == '__main__':
 
     x = torch.randn(3, 4, 96, 96, 96).cuda()
     y= net(x)
-    print(y.shape, y.shape, y.shape)
+    print(y.shape)
     loss = y.sum()
     loss.backward()

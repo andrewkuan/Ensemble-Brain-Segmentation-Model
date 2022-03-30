@@ -9,6 +9,7 @@ import torch
 from torch.optim import lr_scheduler
 from torch.utils.tensorboard import SummaryWriter
 
+from utils.enc1_dec3 import PrototypeArchitecture3d
 from utils.enc1_dec1 import E1D1
 from utils.unet import UnetArchitecture3d
 from utils.ensemble import MyEnsemble

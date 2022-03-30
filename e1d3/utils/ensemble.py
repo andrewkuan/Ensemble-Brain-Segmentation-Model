@@ -20,7 +20,7 @@ class MyEnsemble(nn.Module):
         return x
 
 if __name__ == '__main__':
-    net1 = UnetArchitecture3d().cuda().train()
+    net1 = E1D1().cuda().train()
     net1.print_model_parameters()
 
     net2 = UnetArchitecture3d().cuda().train()
