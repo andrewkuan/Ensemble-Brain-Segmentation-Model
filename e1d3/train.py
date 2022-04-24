@@ -124,8 +124,7 @@ class TrainSession:
 
         #####################################
         self.loss_fn = XEntropyPlusDiceLoss(num_classes=num_classes).cuda()
-        self.optimizer = torch.optim.SGD(self.model.parameters(), lr=initial_learning_rate, momentum=0.99,
-                                         weight_decay=1e-6, dampening=0, nesterov=True)
+        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=initial_learning_rate, weight_decay=0, maximize = True)
 
         def lr_lambda(epoch):
             return (1 - epoch / self.total_epochs) ** lr_decay_rate
