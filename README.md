@@ -63,15 +63,5 @@ python train.py --config config.yaml --gpu 0
 python test.py --config config.yaml --gpu 0
 ```
 
-**Training:**
-```shell
-docker run --rm --gpus all -v "train_data_path":"train_data_path" -v "val_data_path":"val_data_path" -v "model_save_path":"model_save_path" -v "config_path":"config_path" brats_e1d3 --train --config "config_path/config.yaml" --gpu 0
-```
-
-**Testing:**
-```shell
-docker run --rm --gpus all -v "test_data_path":"test_data_path" -v "model_load_path":"model_load_path" -v "config_path":"config_path" brats_e1d3 --test --config "config_path/config.yaml" --gpu 0
-```
-
 **[Note]:** The paths set internally in the docker container should match those provided in `config.yaml`, as those will
 only be visible to the training/testing session.
