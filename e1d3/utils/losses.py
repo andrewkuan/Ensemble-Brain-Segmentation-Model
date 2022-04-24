@@ -52,7 +52,7 @@ class DiceLoss(nn.Module):
         y_true: (B, D, H, W), dtype='long'
         """
         y_true = F.one_hot(y_true, num_classes=self.num_classes).permute(0, 4, 1, 2, 3)
-        y_pred = F.softmax(y_pred, dim=1)  # activate prediction
+        y_pred = F.softmax(y_pred, dim =1)  # activate prediction
 
         numerator = 2.0 * torch.sum(y_true * y_pred, dim=self._REDUCTION_DIMS)
         denominator = torch.sum(y_true, dim=self._REDUCTION_DIMS) + torch.sum(y_pred, dim=self._REDUCTION_DIMS)

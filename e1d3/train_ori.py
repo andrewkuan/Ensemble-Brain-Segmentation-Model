@@ -1,4 +1,3 @@
-from cProfile import label
 import os
 import random
 import time
@@ -9,9 +8,7 @@ import torch
 from torch.optim import lr_scheduler
 from torch.utils.tensorboard import SummaryWriter
 
-from utils.enc1_dec1 import E1D1
 from utils.unet import UnetArchitecture3d
-from utils.ensemble import MyEnsemble
 from utils.losses import XEntropyPlusDiceLoss
 from utils.metrics import MetricsPt
 from utils.dataloader import DatasetMMEP3d
@@ -42,7 +39,6 @@ class TrainSession:
             config = parse_yaml_config(config_file)
 
         config_data = config['data']
-        train_data = config_data.get('data_directory_train')
         num_classes = config_data.get('num_classes')
         num_channels = len(config_data.get('channels'))
 
@@ -73,8 +69,8 @@ class TrainSession:
         # log_configuration(tensorboard_log_path, config_file)
         # log_configuration(tensorboard_log_path, 'utils/enc1_dec3.py')
 
-        self.metrics_list_train = ['loss', 'dice']
-        self.metrics_list_val = ['loss', 'dice']
+        self.metrics_list_train = ['loss', 'dice_wt', 'dice_tc', 'dice_en']
+        self.metrics_list_val = ['loss', 'dice_wt', 'dice_tc', 'dice_en']
         # initialize metrics:
         self.train_metrics = dict((met, torch.zeros(1, dtype=torch.float32).cpu().requires_grad_(False))
                                   for met in self.metrics_list_train)
@@ -83,9 +79,7 @@ class TrainSession:
 
         #####################################
         # network model
-        self.modelA = E1D1(config).cuda()
-        self.modelB = UnetArchitecture3d(config).cuda()
-        self.model = MyEnsemble(self.modelA,self.modelB).cuda()
+        self.model = UnetArchitecture3d(config).cuda()
 
         # initialization:
         def init_weights(m):
@@ -225,28 +219,36 @@ class TrainSession:
             # Binarize Labels:
             with torch.no_grad():
                 data_tensor = data_tensor.cuda(non_blocking=True)
-                label_tensor = self.binarize_labels(label_tensor.clone()).long().cuda(non_blocking=True)
+                label_tensor_wt = self.binarize_labels(label_tensor.clone(), 'WT').long().cuda(non_blocking=True)
+                label_tensor_tc = self.binarize_labels(label_tensor.clone(), 'TC').long().cuda(non_blocking=True)
+                label_tensor_en = self.binarize_labels(label_tensor.clone(), 'EN').long().cuda(non_blocking=True)
+                del label_tensor
 
             self.optimizer.zero_grad()
 
             # predict
             with torch.set_grad_enabled(True):
                 output_tensor = self.model(data_tensor)
-                loss = self.loss_fn(output_tensor, label_tensor)
+                loss = (self.loss_fn(output_tensor, label_tensor_wt) +
+                        self.loss_fn(output_tensor, label_tensor_tc) +
+                        self.loss_fn(output_tensor, label_tensor_en)) / 3.
 
             # backpropagate
-            torch.backends.cudnn.benchmark = False
-            loss.backward() 
+            loss.backward()
             # update
             self.optimizer.step()
 
             # evaluate
             with torch.no_grad():
-                dice = self.metrics_obj.dice_score(torch.argmax(output_tensor, dim=1), label_tensor)
+                dice_wt = self.metrics_obj.dice_score(torch.argmax(output_tensor, dim=1), label_tensor_wt)
+                dice_tc = self.metrics_obj.dice_score(torch.argmax(output_tensor, dim=1), label_tensor_tc)
+                dice_en = self.metrics_obj.dice_score(torch.argmax(output_tensor, dim=1), label_tensor_en)
 
                 metric_dict = {
                     'loss': loss.detach().cpu(),
-                    'dice': dice.cpu()
+                    'dice_wt': dice_wt.cpu(),
+                    'dice_tc': dice_tc.cpu(),
+                    'dice_en': dice_en.cpu(),
                 }
                 for met in self.train_metrics:
                     self.train_metrics[met] += metric_dict[met]
@@ -274,18 +276,27 @@ class TrainSession:
                 i += 1
 
                 data_tensor = data_tensor.cuda(non_blocking=True)
-                label_tensor = self.binarize_labels(label_tensor.clone()).long().cuda(non_blocking=True)
-                
-               # predict
-                output_tensor = self.model(data_tensor)
+                label_tensor_wt = self.binarize_labels(label_tensor.clone(), 'WT').long().cuda(non_blocking=True)
+                label_tensor_tc = self.binarize_labels(label_tensor.clone(), 'TC').long().cuda(non_blocking=True)
+                label_tensor_en = self.binarize_labels(label_tensor.clone(), 'EN').long().cuda(non_blocking=True)
+                del label_tensor
 
-                loss = self.loss_fn(output_tensor, label_tensor)
+                # predict
+                output_tensor= self.model(data_tensor)
 
-                dice = self.metrics_obj.dice_score(torch.argmax(output_tensor, dim=1), label_tensor)
+                loss = (self.loss_fn(output_tensor, label_tensor_wt) +
+                        self.loss_fn(output_tensor, label_tensor_tc) +
+                        self.loss_fn(output_tensor, label_tensor_en)) / 3.
+
+                dice_wt = self.metrics_obj.dice_score(torch.argmax(output_tensor, dim=1), label_tensor_wt)
+                dice_tc = self.metrics_obj.dice_score(torch.argmax(output_tensor, dim=1), label_tensor_tc)
+                dice_en = self.metrics_obj.dice_score(torch.argmax(output_tensor, dim=1), label_tensor_en)
 
                 metric_dict = {
                     'loss': loss.detach().cpu(),
-                    'dice': dice.cpu()
+                    'dice_wt': dice_wt.cpu(),
+                    'dice_tc': dice_tc.cpu(),
+                    'dice_en': dice_en.cpu(),
                 }
 
                 for met in self.val_metrics:
@@ -300,14 +311,7 @@ class TrainSession:
         return per_epoch_dict
 
     @staticmethod
-    def binarize_labels(volume):
-        """  Labels are converted for binary segmentation """
-        volume[volume == 2] = 0
-        volume[volume != 0] = 1
-        return volume
-    
-    @staticmethod
-    def binarize_outputs(volume, tumor_mode):
+    def binarize_labels(volume, tumor_mode):
         """  Labels are converted for binary segmentation """
         if tumor_mode.upper() == 'WT':
             volume[volume != 0] = 1

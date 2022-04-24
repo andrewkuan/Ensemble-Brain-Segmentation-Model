@@ -83,9 +83,9 @@ class TrainSession:
 
         #####################################
         # network model
-        #self.model = E1D1(config).cuda()
-        self.model = UnetArchitecture3d(config).cuda()
-        #self.model = MyEnsemble(self.modelA,self.modelB).cuda()
+        self.modelA = E1D1(config).cuda()
+        self.modelB = UnetArchitecture3d(config).cuda()
+        self.model = MyEnsemble(self.modelA,self.modelB).cuda()
 
         # initialization:
         def init_weights(m):
@@ -237,7 +237,7 @@ class TrainSession:
                 output_tensor = self.model(data_tensor)
                 loss = (self.loss_fn(output_tensor, label_tensor_wt) +
                         self.loss_fn(output_tensor, label_tensor_tc) +
-                        self.loss_fn(output_tensor, label_tensor_en))
+                        self.loss_fn(output_tensor, label_tensor_en)) / 3.
 
             # backpropagate
             torch.backends.cudnn.benchmark = False
@@ -293,7 +293,7 @@ class TrainSession:
 
                 loss = (self.loss_fn(output_tensor, label_tensor_wt) +
                         self.loss_fn(output_tensor, label_tensor_tc) +
-                        self.loss_fn(output_tensor, label_tensor_en))
+                        self.loss_fn(output_tensor, label_tensor_en)) /3.
 
                 dice_wt = self.metrics_obj.dice_score(torch.argmax(output_tensor, dim=1), label_tensor_wt)
                 dice_tc = self.metrics_obj.dice_score(torch.argmax(output_tensor, dim=1), label_tensor_tc)
